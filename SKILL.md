@@ -17,7 +17,7 @@ User control is absolute: never save, arm, or resume a handoff unless the user a
 
 ## Storage
 - Chat/ops workstreams: `~/.openclaw/workspace/memory/handoffs/<workstream>/` (typed ephemeral lane, private).
-- Repo-bound coding work: `<repo>/.context/handoffs/<workstream>/` — **gitignored by default**. Committing requires `access: repo-shared` in frontmatter AND a passing validation run.
+- Repo-bound coding work: `<repo>/.context/handoffs/<workstream>/` — a **private lane** for `access: private-local`; `create-handoff --repo` adds a `.context/handoffs/` rule to the repo `.gitignore` when missing (or warns loudly). Committing an artifact requires `access: repo-shared` in frontmatter AND a passing validation run (which rejects `/home/<user>/` and `/root/` absolute paths).
 - Workstream slug = chunk. Split big projects into chunks (`<project>-p1`, `<project>-p2`); each chunk has its own worklog + chain. Resume targets one chunk.
 
 ## CREATE flow ("handoff save")
@@ -50,5 +50,5 @@ User control is absolute: never save, arm, or resume a handoff unless the user a
 - Closed handoffs+worklogs are prunable after ~30 days. Do not treat old handoffs as history — history lives in git/docs/memory.
 
 ## Reserved (do not implement yet)
-- Phase 2 (`--arm` / `_pending/` bootstrap injection): not implemented — current design likely doesn't need injection. Revisit only if cold-start friction appears.
+- Phase 2 (`--arm` / `_pending/` bootstrap injection): skipped 2026-07-06 per Nick — current design likely doesn't need injection. Revisit only if cold-start friction appears.
 - Phase 3 (next up): compaction-pressure detection + handoff-doc recommendation (suggest-only, never auto-write).

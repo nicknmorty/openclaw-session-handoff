@@ -43,14 +43,16 @@ for (const [re, label] of secretPatterns) if (re.test(text)) errors.push(`possib
 
 // locality/private-identifier patterns (fail when shared, warn when private-local)
 const bucket = fm.access === 'private-local' ? warnings : errors;
-if (/\/home\/[a-z0-9_-]+\//.test(text)) bucket.push('absolute home path present');
+if (/(?:\/home\/[a-z0-9_-]+|\/root)\//.test(text)) bucket.push('absolute home/root path present');
 if (/agent:[a-z0-9-]+:[a-z]+:/.test(text)) bucket.push('session key present');
 if (/-100\d{9,}/.test(text)) bucket.push('private chat id present');
 if (/https?:\/\/(127\.|10\.|192\.168\.|localhost|[a-z0-9-]+\.ts\.net)/.test(text)) bucket.push('internal URL present');
 
 // location rule: outside the private lane requires repo-shared
 const abs = path.resolve(file);
-const inPrivateLane = abs.includes(`${path.sep}memory${path.sep}handoffs${path.sep}`) || abs.startsWith('/tmp/');
+const inPrivateLane = abs.includes(`${path.sep}memory${path.sep}handoffs${path.sep}`)
+  || abs.includes(`${path.sep}.context${path.sep}handoffs${path.sep}`)
+  || abs.startsWith('/tmp/');
 if (!inPrivateLane && fm.access !== 'repo-shared') errors.push(`artifact outside private lane (${abs}) but access=${fm.access}; requires access: repo-shared`);
 
 for (const w of warnings) console.log(`WARN: ${w}`);

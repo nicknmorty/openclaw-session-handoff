@@ -26,6 +26,27 @@ const base = args.base
 const dir = path.join(base, ws);
 fs.mkdirSync(dir, { recursive: true });
 
+// repo lane hygiene: private handoffs must never be committed by accident.
+// Ensure <repo>/.context/handoffs/ is gitignored; add the rule if missing.
+if (args.repo && access === 'private-local') {
+  const repoAbs = path.resolve(args.repo);
+  try {
+    execFileSync('git', ['check-ignore', '-q', path.join('.context', 'handoffs', 'x')], { cwd: repoAbs });
+  } catch {
+    try {
+      const gi = path.join(repoAbs, '.gitignore');
+      const cur = fs.existsSync(gi) ? fs.readFileSync(gi, 'utf8') : '';
+      const rule = '.context/handoffs/';
+      if (!cur.split('\n').some(l => l.trim() === rule)) {
+        fs.writeFileSync(gi, `${cur}${cur && !cur.endsWith('\n') ? '\n' : ''}# private session-handoff working state (session-handoff skill)\n${rule}\n`);
+        console.error(`notice: added "${rule}" to ${gi} so private handoffs are not committed`);
+      }
+    } catch {
+      console.error('WARNING: <repo>/.context/handoffs/ is NOT gitignored and .gitignore could not be updated; private handoff state may be committed. Add ".context/handoffs/" to your ignore rules.');
+    }
+  }
+}
+
 // next zero-padded seq
 const seqs = fs.readdirSync(dir).map(f => /^(\d{3})-/.exec(f)?.[1]).filter(Boolean).map(Number);
 const seq = String((seqs.length ? Math.max(...seqs) : 0) + 1).padStart(3, '0');

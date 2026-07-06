@@ -57,7 +57,9 @@ let git = null;
 if (args.repo) {
   try {
     const opt = { cwd: args.repo, encoding: 'utf8' };
-    const run = (...a) => execFileSync('git', a, opt).trim();
+    // stdio: swallow git's own stderr (e.g. "ambiguous argument 'HEAD'" on a
+    // commitless repo) so only this script's warning is shown on failure.
+    const run = (...a) => execFileSync('git', a, { ...opt, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     git = {
       branch: run('rev-parse', '--abbrev-ref', 'HEAD'),
       head: run('rev-parse', 'HEAD'),

@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const args = {};
 for (let i = 2; i < process.argv.length; i += 2) {
@@ -36,10 +36,11 @@ let git = null;
 if (args.repo) {
   try {
     const opt = { cwd: args.repo, encoding: 'utf8' };
+    const run = (...a) => execFileSync('git', a, opt).trim();
     git = {
-      branch: execSync('git rev-parse --abbrev-ref HEAD', opt).trim(),
-      head: execSync('git rev-parse HEAD', opt).trim(),
-      dirty: execSync('git status --porcelain', opt).trim().split('\n').filter(Boolean).length,
+      branch: run('rev-parse', '--abbrev-ref', 'HEAD'),
+      head: run('rev-parse', 'HEAD'),
+      dirty: run('status', '--porcelain').split('\n').filter(Boolean).length,
     };
   } catch { console.error('warn: could not read git state for --repo'); }
 }

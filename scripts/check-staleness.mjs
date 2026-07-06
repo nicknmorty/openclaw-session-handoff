@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Drift report for a handoff artifact. Prints GREEN/YELLOW/RED + reasons. Exit 0/1/2 respectively.
 import fs from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 const file = process.argv[2];
 if (!file || !fs.existsSync(file)) { console.error('Usage: check-staleness.mjs <artifact.md>'); process.exit(3); }
@@ -22,15 +22,17 @@ else if (ageH > 24) bump(1, `age ${(ageH / 24).toFixed(1)}d > 24h`);
 if (fm.status === 'closed') bump(2, 'status is closed — workstream already completed');
 
 if (fm.repo && fm.git_head) {
-  try {
+  if (!/^[0-9a-f]{7,40}$/.test(fm.git_head)) bump(2, 'git_head in frontmatter is not a valid commit hash');
+  else try {
     const opt = { cwd: fm.repo, encoding: 'utf8' };
-    const count = Number(execSync(`git rev-list --count ${fm.git_head}..HEAD`, opt).trim());
+    const git = (...args) => execFileSync('git', args, opt).trim();
+    const count = Number(git('rev-list', '--count', `${fm.git_head}..HEAD`));
     if (count > 10) bump(2, `${count} commits since handoff`);
     else if (count > 0) bump(1, `${count} commit(s) since handoff`);
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', opt).trim();
+    const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
     if (fm.git_branch && branch !== fm.git_branch) bump(2, `branch changed: ${fm.git_branch} -> ${branch}`);
     if (count > 0) {
-      const changed = execSync(`git diff --name-only ${fm.git_head}..HEAD`, opt).trim().split('\n').filter(Boolean);
+      const changed = git('diff', '--name-only', `${fm.git_head}..HEAD`).split('\n').filter(Boolean);
       reasons.push(`changed files since handoff: ${changed.slice(0, 10).join(', ')}${changed.length > 10 ? ` (+${changed.length - 10} more)` : ''}`);
     }
   } catch { bump(2, `git_head ${fm.git_head?.slice(0, 8)} not resolvable in ${fm.repo}`); }

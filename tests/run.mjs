@@ -49,6 +49,38 @@ run('create-handoff.mjs', ['--workstream', 't', '--repo', repo]);
 const gi = path.join(repo, '.gitignore');
 check('create-handoff --repo ensures gitignore rule', fs.existsSync(gi) && fs.readFileSync(gi, 'utf8').includes('.context/handoffs/'));
 
+// 6. (#3) repo-relative files entries resolve against the artifact's repo:, regardless of caller cwd
+const repo3 = path.join(tmp, 'repo3');
+fs.mkdirSync(repo3, { recursive: true });
+execFileSync('git', ['init', '-q'], { cwd: repo3 });
+fs.writeFileSync(path.join(repo3, 'a.txt'), 'hi\n');
+execFileSync('git', ['add', 'a.txt'], { cwd: repo3 });
+execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.com', 'commit', '-q', '-m', 'init'], { cwd: repo3 });
+const head3 = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo3, encoding: 'utf8' }).trim();
+const branch3 = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: repo3, encoding: 'utf8' }).trim();
+const mkArt = (name, filesLine) => {
+  const p = path.join(tmp, name);
+  fs.writeFileSync(p, `---\nworkstream: repro\nseq: 001\nartifact_id: repro-001\ncreated: ${new Date().toISOString()}\naccess: private-local\nstatus: open\nrepo: ${repo3}\ngit_branch: ${branch3}\ngit_head: ${head3}\n${filesLine}\n---\n`);
+  return p;
+};
+check('repo-relative files entry resolves against repo (issue #3)', run('check-staleness.mjs', [mkArt('006.md', 'files: [a.txt]')]) === 0);
+check('quoted files entry normalized (issue #3)', run('check-staleness.mjs', [mkArt('007.md', 'files: ["a.txt"]')]) === 0);
+check('missing repo-relative file still YELLOW (issue #3)', run('check-staleness.mjs', [mkArt('008.md', 'files: [nope.txt]')]) === 1);
+
+// 7. (#4) repo-shared scaffold inside the repo writes a relative repo: that validates and resolves
+run('create-handoff.mjs', ['--workstream', 'shared', '--repo', repo3, '--access', 'repo-shared']);
+const sharedDir = path.join(repo3, '.context', 'handoffs', 'shared');
+const art9 = path.join(sharedDir, fs.readdirSync(sharedDir).find(f => /^001-/.test(f)));
+let t9 = fs.readFileSync(art9, 'utf8');
+const repoLine9 = /^repo: (.*)$/m.exec(t9)?.[1];
+check('repo-shared scaffold repo: is relative, not absolute (issue #4)', Boolean(repoLine9) && !path.isAbsolute(repoLine9));
+fs.writeFileSync(art9, t9.replace(/\[TODO: fill\]/g, 'filled content with enough words for validation smoke test'));
+check('repo-shared scaffold passes validation after fill (issue #4)', run('validate-handoff.mjs', [art9]) === 0);
+check('relative repo: resolves for staleness git checks (issue #4)', run('check-staleness.mjs', [art9]) === 0);
+
+// 8. (#4) repo-shared with an outside --base plus /home repo path refuses with guidance (exit 2)
+check('repo-shared outside-repo /home path refused', run('create-handoff.mjs', ['--workstream', 'x', '--repo', '/home/someone/repo', '--base', path.join(tmp, 'outside'), '--access', 'repo-shared']) === 2);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(failures === 0 ? 'ALL TESTS PASSED' : `${failures} TEST(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

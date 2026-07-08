@@ -3,6 +3,16 @@
 All notable changes to this project are documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.4] - 2026-07-08
+
+### Fixed
+- `check-staleness.mjs` now resolves relative `files:` entries against the artifact's `repo:` path (falling back to caller cwd only for repo-less artifacts), and normalizes quoted entries like `files: ["a.txt"]`, eliminating false YELLOW "referenced file missing" reports (#3).
+- `check-staleness.mjs` resolves a relative `repo:` value against the artifact's own directory, so portable repo-shared artifacts keep working git drift checks (#4).
+- `create-handoff.mjs --repo --access repo-shared` now writes `repo:` as a path relative to the artifact directory when the artifact lives inside the repo, so the scaffold no longer embeds `/root`/`/home` paths that its own validator rejects; when a custom `--base` outside the repo would force a non-portable path, it refuses with guidance instead of scaffolding an invalid artifact (#4).
+
+### Added
+- Fixture regression tests for repo-relative/quoted `files:` resolution, portable repo-shared scaffolds (relative `repo:` + validation + staleness), and the non-portable-path refusal case.
+
 ## [1.0.3] - 2026-07-06
 
 ### Fixed
